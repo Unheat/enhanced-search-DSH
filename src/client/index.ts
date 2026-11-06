@@ -243,6 +243,48 @@ function applyInternal(ctx: Context): void {
   const keyboard = attach(activeShortcut)
   ctx.effect(() => () => keyboard.dispose(), 'universal-palette: keyboard listener')
 
+  // Intercept clicks on DSH native session search button to open Universal Palette instead
+  if (typeof document !== 'undefined') {
+    const isWorkspaceSearchButton = (btn: HTMLElement): boolean => {
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase()
+      const shortcuts = btn.getAttribute('aria-keyshortcuts') || ''
+      const cls = String(btn.className || '')
+      if (shortcuts.includes('KeyK') || cls.includes('searchButton')) return true
+      if (
+        aria.includes('session') || aria.includes('会话') || aria.includes('セッション') ||
+        aria.includes('sesiones') || aria.includes('sitzung') || aria.includes('сеанс') || aria.includes('sessõ')
+      ) {
+        if (aria.includes('search') || aria.includes('搜索') || aria.includes('検索') ||
+            aria.includes('buscar') || aria.includes('recherch') || aria.includes('such') || aria.includes('поиск')) {
+          return true
+        }
+      }
+      return false
+    }
+
+    const onSearchIconClick = (e: MouseEvent) => {
+      const target = e.target as Element | null
+      if (!target) return
+      if (target.closest('[data-plugin="dsh-universal-palette"]')) return
+      const btn = target.closest('button')
+      if (btn && isWorkspaceSearchButton(btn)) {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+        if (controller.getState().presentation === 'floating') {
+          controller.close()
+        } else {
+          controller.openFloating()
+        }
+      }
+    }
+
+    document.addEventListener('click', onSearchIconClick, true)
+    ctx.effect(() => () => {
+      document.removeEventListener('click', onSearchIconClick, true)
+    }, 'universal-palette: search icon click interceptor')
+  }
+
   // Watch the preferences shortcut so a runtime change updates the
   // keyboard listener (and the conflict verdict) with the migrated value.
   // The listener is the same function identity across changes; we dispose

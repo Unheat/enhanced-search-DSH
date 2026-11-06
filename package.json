@@ -58,7 +58,7 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.2"
   },
-"devDependencies": {
+  "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
     "@deepseek-ai/dsh-api-remotes": "0.1.2-rc.1",
     "@deepseek-ai/dsh-api-session-controller": "0.1.2-rc.1",
@@ -80,14 +80,16 @@
     "@types/react": "~18.3.1",
     "@types/react-dom": "18.3.7",
     "lightningcss": "^1.33.0",
+    "lightningcss-darwin-arm64": "^1.33.0",
     "react": "^18.2.0",
     "react-dom": "18.3.1",
     "tsdown": "^0.22.14",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "unrun": "^0.3.1"
   },
   "engines": {
-    "node": ">=22.19.0",
-    "dsh": "0.1.2-rc.1"
+    "node": ">=20.0.0",
+    "dsh": ">=0.1.2-rc.1"
   },
   "repository": {
     "type": "git",

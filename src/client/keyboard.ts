@@ -72,7 +72,8 @@ export function attachKeyboard(opts: KeyboardOptions): KeyboardHandle {
       return
     }
     const detected = detectShortcut(e)
-    if (detected === opts.shortcut) {
+    const isCmdK = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K')
+    if (detected === opts.shortcut || isCmdK) {
       e.preventDefault()
       e.stopPropagation()
       if (opts.isOpen?.()) opts.onClose()
