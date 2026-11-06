@@ -245,19 +245,26 @@ function applyInternal(ctx: Context): void {
 
   // Intercept clicks on DSH native session search button to open Universal Palette instead
   if (typeof document !== 'undefined') {
-    const isWorkspaceSearchButton = (btn: HTMLElement): boolean => {
-      const aria = (btn.getAttribute('aria-label') || '').toLowerCase()
-      const shortcuts = btn.getAttribute('aria-keyshortcuts') || ''
-      const cls = String(btn.className || '')
-      if (shortcuts.includes('KeyK') || cls.includes('searchButton')) return true
+    const isSearchTrigger = (el: Element): boolean => {
+      if (el.closest('[data-plugin="dsh-universal-palette"]')) return false
+      if (el.tagName === 'INPUT') return false
+
+      const target = el.closest('button, [role="button"], div[class*="search"]')
+      if (!target) return false
+
+      const aria = (target.getAttribute('aria-label') || '').toLowerCase()
+      const shortcuts = target.getAttribute('aria-keyshortcuts') || ''
+      const cls = String(target.className || '')
+
+      if (cls.includes('searchButton') || shortcuts.includes('KeyK')) return true
+      if (cls.includes('search') && !cls.includes('searchInput') && !cls.includes('searchTree') && !cls.includes('searchResult') && !cls.includes('searchStatus')) {
+        return true
+      }
       if (
-        aria.includes('session') || aria.includes('会话') || aria.includes('セッション') ||
-        aria.includes('sesiones') || aria.includes('sitzung') || aria.includes('сеанс') || aria.includes('sessõ')
+        (aria.includes('search') || aria.includes('搜索') || aria.includes('検索') || aria.includes('buscar')) &&
+        (aria.includes('session') || aria.includes('会话') || shortcuts.includes('K'))
       ) {
-        if (aria.includes('search') || aria.includes('搜索') || aria.includes('検索') ||
-            aria.includes('buscar') || aria.includes('recherch') || aria.includes('such') || aria.includes('поиск')) {
-          return true
-        }
+        return true
       }
       return false
     }
@@ -265,9 +272,7 @@ function applyInternal(ctx: Context): void {
     const onSearchIconClick = (e: MouseEvent) => {
       const target = e.target as Element | null
       if (!target) return
-      if (target.closest('[data-plugin="dsh-universal-palette"]')) return
-      const btn = target.closest('button')
-      if (btn && isWorkspaceSearchButton(btn)) {
+      if (isSearchTrigger(target)) {
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()

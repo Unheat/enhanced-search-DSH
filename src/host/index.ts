@@ -7,8 +7,11 @@
  * `cordis.patch.yml` are well-formed.
  */
 
-export const hostApply = (): void => {
-  // No-op.
+export const name = 'dsh-universal-palette'
+
+export function apply(ctx: unknown): void {
+  // Host face: no-op
 }
 
-export default hostApply
+export default { name, apply }
+
