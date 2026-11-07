@@ -6,7 +6,7 @@ import {
   IconNewChatOutline16,
   IconSkillOutline16,
   IconSparkle16,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from './icons.tsx'
 import type { PaletteItem } from '../shared/contract.ts'
 import { conciseMorphDescription, morphTypeLabel } from './morphPresentation.ts'
 import css, { cssText } from './MorphResults.module.css'

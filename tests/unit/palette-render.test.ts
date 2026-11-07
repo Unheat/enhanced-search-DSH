@@ -24,8 +24,12 @@ function loadComponent(file: string): Record<string, unknown> {
     if (id.endsWith('.css')) {
       return { __esModule: true, default: new Proxy({}, { get: (_t, key) => String(key) }), cssText: '' }
     }
+    if (id === './icons.tsx') return loadComponent('../../src/client/icons.tsx')
     if (id.includes('primitives')) {
-      return new Proxy({}, { get: () => () => React.createElement('svg', { width: 16, height: 16 }) })
+      return Object.fromEntries([
+        'IconSearchOutlineRegular', 'IconNewChatOutlineRegular', 'IconFolderOpenOutlineRegular',
+        'IconClockOutlineRegular', 'IconSparkleRegular', 'IconSkillOutlineRegular', 'IconAgentPresetOutlineRegular',
+      ].map(name => [name, () => React.createElement('svg', { width: 16, height: 16 })]))
     }
     return {}
   }

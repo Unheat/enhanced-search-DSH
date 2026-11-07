@@ -131,6 +131,7 @@ function applyInternal(ctx: Context): void {
   )
   void preferences.load()
   const aggregator = new PaletteAggregator({
+    acceptLateResults: true,
     providers: [
       createCommandsProvider(ctx.remote.commands, ctx.sessions, ctx.inputTriggers),
       createSessionsProvider(ctx.sessions, ctx.workspaces),

@@ -18,6 +18,7 @@ export interface AggregatorOptions {
   readonly softDeadlineMs?: number
   readonly hardLimit?: number
   readonly debounceMs?: number
+  readonly acceptLateResults?: boolean
 }
 
 export interface QueryState {
@@ -43,6 +44,7 @@ export class PaletteAggregator {
   private readonly softDeadlineMs: number
   private readonly hardLimit: number
   private readonly debounceMs: number
+  private readonly acceptLateResults: boolean
 
   private state: QueryState = {
     status: 'idle',
@@ -64,6 +66,7 @@ export class PaletteAggregator {
     this.softDeadlineMs = opts.softDeadlineMs ?? DEFAULT_SOFT_DEADLINE_MS
     this.hardLimit = opts.hardLimit ?? DEFAULT_HARD_LIMIT
     this.debounceMs = opts.debounceMs ?? DEFAULT_DEBOUNCE_MS
+    this.acceptLateResults = opts.acceptLateResults ?? false
   }
 
   getState(): QueryState {
@@ -197,11 +200,17 @@ export class PaletteAggregator {
       }
       collectPromises.forEach((promise, i) => {
         void promise.then(result => {
+          if (controller.signal.aborted) return
           settled[i] = true
+          if (done && this.acceptLateResults) {
+            const late = failures.findIndex(f => f.providerId === this.providers[i]!.id && f.reason === 'late')
+            if (late !== -1) failures.splice(late, 1)
+          }
           if (result.kind === 'ok') collected.push(...result.items)
           else if (result.kind === 'fail' && result.reason !== 'aborted') {
             failures.push({ providerId: result.providerId, reason: result.reason })
           }
+          if (done && this.acceptLateResults) publish()
           if (!done && settled.every(Boolean)) {
             publish()
             finish()

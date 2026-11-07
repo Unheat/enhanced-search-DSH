@@ -17,7 +17,7 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { IconSearchOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconSearchOutline16 } from './icons.tsx'
 import type { SearchController } from './search-controller.ts'
 import type { AvailabilityObservable } from './heroDock.ts'
 
