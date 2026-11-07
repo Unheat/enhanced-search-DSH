@@ -134,9 +134,9 @@ function applyInternal(ctx: Context): void {
     acceptLateResults: true,
     providers: [
       createCommandsProvider(ctx.remote.commands, ctx.sessions, ctx.inputTriggers),
-      createSessionsProvider(ctx.sessions, ctx.workspaces),
+      createSessionsProvider(ctx.sessions, ctx.workspaces, ctx.uiWorkspace),
       createModelsProvider(ctx.sessions, ctx.modelDirectories),
-      createConversationHitsProvider(ctx.sessions),
+      createConversationHitsProvider(ctx.sessions, ctx.uiWorkspace),
     ],
     preferences: () => preferences.snapshot,
     // Live public-context boost: workspace/session/provider weighting in

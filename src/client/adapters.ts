@@ -142,6 +142,7 @@ function commandItem(
 export function createSessionsProvider(
   sessions: ISessions,
   workspaces: IWorkspaces,
+  uiWorkspace?: { openSession?: (id: SessionId) => void },
 ): PaletteProvider {
   return {
     id: 'sessions',
@@ -155,7 +156,7 @@ export function createSessionsProvider(
       }
       if (signal.aborted) return EMPTY_ITEMS
       const workspaceState = workspaces.list.getSnapshot()
-      return sessionItems(sessions, state, workspaceState, input.context, input.limit)
+      return sessionItems(sessions, state, workspaceState, input.context, input.limit, uiWorkspace)
     },
   }
 }
@@ -166,6 +167,7 @@ function sessionItems(
   workspaces: WorkspaceSnapshot,
   context: PaletteContext,
   limit: number,
+  uiWorkspace?: { openSession?: (id: SessionId) => void },
 ): PaletteItem[] {
   const archived = new Set(workspaces.archivedSessionIds)
   const items: PaletteItem[] = []
@@ -174,7 +176,7 @@ function sessionItems(
     if (summary === undefined || archived.has(id)) continue
     if (summary.parentId !== undefined || summary.origin === 'subagent') continue
     const workspace = workspaces.items.find(candidate => candidate.sessionIds.includes(id))
-    items.push(sessionItem(sessions, summary, workspace?.workspaceId, state.current === id, context))
+    items.push(sessionItem(sessions, summary, workspace?.workspaceId, state.current === id, context, uiWorkspace))
     if (items.length >= limit) break
   }
   return items
@@ -186,6 +188,7 @@ function sessionItem(
   workspaceId: string | undefined,
   current: boolean,
   context: PaletteContext,
+  uiWorkspace?: { openSession?: (id: SessionId) => void },
 ): PaletteItem {
   return {
     id: `sessions:${summary.id}`,
@@ -202,7 +205,13 @@ function sessionItem(
       id: 'open',
       title: 'Open',
       kind: 'primary',
-      run: () => { sessions.open(summary.id) },
+      run: () => {
+        if (uiWorkspace && typeof uiWorkspace.openSession === 'function') {
+          uiWorkspace.openSession(summary.id)
+        } else if (typeof (sessions as any).open === 'function') {
+          (sessions as any).open(summary.id)
+        }
+      },
     },
     secondary: [],
     context: {
@@ -288,7 +297,10 @@ function modelItem(
   }
 }
 
-export function createConversationHitsProvider(sessions: ISessions): PaletteProvider {
+export function createConversationHitsProvider(
+  sessions: ISessions,
+  uiWorkspace?: { openSession?: (id: SessionId) => void },
+): PaletteProvider {
   return {
     id: 'conversation-hits',
     label: 'Conversation Hits',
@@ -304,7 +316,8 @@ export function createConversationHitsProvider(sessions: ISessions): PaletteProv
         providerId: 'conversation-hits',
         kind: 'conversation-hit',
         title: sessions.list.getSnapshot().byId[hit.sessionId]?.displayTitle
-          ?? '',
+          ?? sessions.list.getSnapshot().byId[hit.sessionId]?.title
+          ?? String(hit.sessionId),
         updatedAt: sessions.list.getSnapshot().byId[hit.sessionId]?.updatedAt,
         workspaceTitle: sessions.list.getSnapshot().byId[hit.sessionId]?.cwd?.split(/[\\/]/).filter(Boolean).at(-1),
         source: 'DSH',
@@ -315,7 +328,13 @@ export function createConversationHitsProvider(sessions: ISessions): PaletteProv
           id: 'open',
           title: 'Open',
           kind: 'primary',
-          run: () => { sessions.open(hit.sessionId) },
+          run: () => {
+            if (uiWorkspace && typeof uiWorkspace.openSession === 'function') {
+              uiWorkspace.openSession(hit.sessionId)
+            } else if (typeof (sessions as any).open === 'function') {
+              (sessions as any).open(hit.sessionId)
+            }
+          },
         },
         secondary: [],
         context: { ...input.context, sessionId: String(hit.sessionId) },

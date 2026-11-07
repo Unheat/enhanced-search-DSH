@@ -16,7 +16,11 @@ export function createStartupItems(
     if (path === null) return
     const workspace = await ctx.workspaces.create({ path })
     const id = await ctx.uiWorkspace.connectWorkspace(workspace.workspaceId)
-    ctx.sessions.open(id)
+    if (typeof (ctx.uiWorkspace as any)?.openSession === 'function') {
+      (ctx.uiWorkspace as any).openSession(id)
+    } else if (typeof (ctx.sessions as any)?.open === 'function') {
+      (ctx.sessions as any).open(id)
+    }
   }
   const hasWorkspace = ctx.workspaces.list.getSnapshot().items.length > 0
   return [

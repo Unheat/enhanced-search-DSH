@@ -51,7 +51,7 @@ export function prepareView(state: SearchState, driver: SurfaceDriver): Prepared
   // Compare against the aggregator's live query: the controller-level
   // `query` field is write-never (draft is the single input source), so
   // comparing against it would suppress every non-empty result list.
-  const pendingQuery = state.aggregator.query !== draft.trim().replace(/^>\s*/, '')
+  const pendingQuery = mode !== 'workspaces' && state.aggregator.query !== draft.trim().replace(/^>\s*/, '')
   const queryItems = state.aggregator.items
   const contextual = draft.trim() === '' && driver.hasSession && mode === 'all'
     ? contextualItems(queryItems as readonly RankedItem[])
@@ -67,7 +67,7 @@ export function prepareView(state: SearchState, driver: SurfaceDriver): Prepared
       .map((w) => ({ item: workspaceItem(w, driver), score: 0, matchRanges: [] }))
   } else {
     const base = contextual.map((row) => ({ item: row.item, score: row.score, matchRanges: row.match.ranges }))
-    if (!driver.hasSession) {
+    if (!driver.hasSession && draft.trim() === '') {
       const startup = createStartupItems(
         driver.ctx,
         () => driver.setMode('workspaces'),
@@ -124,10 +124,20 @@ function workspaceItem(
       title: 'Open',
       run: async () => {
         // Official workspace flow: resolve the reusable/new Session for the
-        // workspace, then open it. The workspaceId is never used as a
-        // sessionId (the historical openMorph(workspaceId) did exactly that).
-        const sessionId = await driver.ctx.uiWorkspace.connectWorkspace(w.workspaceId as WorkspaceId)
-        driver.ctx.sessions.open(sessionId)
+        // workspace, then open it.
+        const ui = (driver.ctx as any).uiWorkspace
+        if (ui && typeof ui.connectWorkspace === 'function') {
+          const sessionId = await ui.connectWorkspace(w.workspaceId as WorkspaceId)
+          if (typeof ui.openSession === 'function') {
+            ui.openSession(sessionId)
+          } else if (typeof (driver.ctx.sessions as any)?.open === 'function') {
+            (driver.ctx.sessions as any).open(sessionId)
+          }
+        } else if (ui && typeof ui.openWorkspace === 'function') {
+          await ui.openWorkspace(w.workspaceId)
+        } else if (typeof (driver.ctx.sessions as any)?.open === 'function') {
+          (driver.ctx.sessions as any).open(w.workspaceId)
+        }
       },
     },
   }

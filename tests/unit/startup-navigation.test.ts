@@ -228,3 +228,38 @@ test('draft ahead of the aggregator stays pending (rows withheld during debounce
   assert.equal(view.pendingQuery, true)
   assert.equal(view.items.length, 0, 'unsettled draft withholds rows')
 })
+
+test('cold start with typed draft renders search hits without prepending startup rows', () => {
+  const { ctx } = makeDriverCtx()
+  const view = prepareView(makeState({
+    draft: 'alpha',
+    aggregator: { status: 'ready', query: 'alpha', actionsHint: false, items: [sessionRow('s1', 'Alpha chat')], failures: [], seq: 2 },
+  }), {
+    ctx, hasSession: false,
+    workspaces: [{ workspaceId: 'w1', title: 'Alpha', path: 'E:/alpha' }],
+    t, setMode: () => {},
+  })
+  assert.equal(view.items.length, 1)
+  assert.equal(view.items[0]?.item.id, 'sessions:s1')
+  assert.ok(!view.items.some(e => e.item.id.startsWith('startup:')), 'startup rows are not prepended when searching')
+})
+
+test('workspace row opens via uiWorkspace.openSession when sessions.open is absent', async () => {
+  const opened: string[] = []
+  const ctx = {
+    sessions: { list: { getSnapshot: () => ({ current: undefined, ids: [], byId: {}, phase: 'ready' }) } },
+    workspaces: { list: { getSnapshot: () => ({ items: [], archivedSessionIds: [] }) } },
+    uiWorkspace: {
+      connectWorkspace: async (id: string) => `connected-${id}`,
+      openSession: (sessionId: string) => { opened.push(sessionId) },
+    },
+  }
+  const view = prepareView(makeState({ mode: 'workspaces' }), {
+    ctx: ctx as never, hasSession: false,
+    workspaces: [{ workspaceId: 'w-test', title: 'Test Workspace', path: '/test' }],
+    t, setMode: () => {},
+  })
+  assert.equal(view.items.length, 1)
+  await view.items[0]!.item.primary.run(new AbortController().signal)
+  assert.deepEqual(opened, ['connected-w-test'])
+})

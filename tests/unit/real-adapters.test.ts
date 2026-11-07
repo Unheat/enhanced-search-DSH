@@ -190,3 +190,27 @@ test('official client /model contribution uses the public input-trigger adjudica
   assert.equal(calls[0][0], '/model')
   assert.deepEqual(calls[0][2], { images: 0 })
 })
+
+test('sessions and hits providers open via uiWorkspace.openSession when sessions.open is not present', async () => {
+  let openedSession: SessionId | undefined
+  const uiWorkspace = { openSession: (id: SessionId) => { openedSession = id } }
+  const s = sessions() // has default dummy open: () => {}
+  delete (s as Record<string, unknown>).open // remove open so only uiWorkspace is available
+
+  const sessionsProv = createSessionsProvider(s, workspaces(), uiWorkspace)
+  const sItems = await sessionsProv.collect(input, new AbortController().signal)
+  await sItems[0]?.primary.run(new AbortController().signal)
+  assert.equal(openedSession, sid('main-session'))
+
+  openedSession = undefined
+  const hitsProv = createConversationHitsProvider({
+    ...s,
+    search: async (query: string) => ({
+      ok: true as const,
+      value: { items: [{ sessionId: sid('hit-session'), snippet: query }], hasMore: false },
+    }),
+  } as never, uiWorkspace)
+  const hItems = await hitsProv.collect({ ...input, query: 'test' }, new AbortController().signal)
+  await hItems[0]?.primary.run(new AbortController().signal)
+  assert.equal(openedSession, sid('hit-session'))
+})
