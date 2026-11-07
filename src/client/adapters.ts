@@ -34,6 +34,11 @@ type ModelDirectories = Pick<ModelDirectoryResolver, 'directoryFor'>
 
 const EMPTY_ITEMS: PaletteItem[] = []
 
+export interface SessionNavigator {
+  openSession?(id: SessionId | string): void
+  connectWorkspace?(workspaceId: any): Promise<SessionId>
+}
+
 interface CurrentSession {
   readonly id: SessionId
   readonly binding: SessionBinding | undefined
@@ -142,7 +147,7 @@ function commandItem(
 export function createSessionsProvider(
   sessions: ISessions,
   workspaces: IWorkspaces,
-  uiWorkspace?: { openSession?: (id: SessionId) => void },
+  uiWorkspace?: SessionNavigator,
 ): PaletteProvider {
   return {
     id: 'sessions',
@@ -167,7 +172,7 @@ function sessionItems(
   workspaces: WorkspaceSnapshot,
   context: PaletteContext,
   limit: number,
-  uiWorkspace?: { openSession?: (id: SessionId) => void },
+  uiWorkspace?: SessionNavigator,
 ): PaletteItem[] {
   const archived = new Set(workspaces.archivedSessionIds)
   const items: PaletteItem[] = []
@@ -188,7 +193,7 @@ function sessionItem(
   workspaceId: string | undefined,
   current: boolean,
   context: PaletteContext,
-  uiWorkspace?: { openSession?: (id: SessionId) => void },
+  uiWorkspace?: SessionNavigator,
 ): PaletteItem {
   return {
     id: `sessions:${summary.id}`,
@@ -299,7 +304,7 @@ function modelItem(
 
 export function createConversationHitsProvider(
   sessions: ISessions,
-  uiWorkspace?: { openSession?: (id: SessionId) => void },
+  uiWorkspace?: SessionNavigator,
 ): PaletteProvider {
   return {
     id: 'conversation-hits',
