@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react'
 import { IconSearchOutline16, IconNewChatOutline16, IconFolderOpenOutline16, IconClockOutline16, IconSparkle16 } from './icons.tsx'
 import type { PaletteItem, PaletteAction } from '../shared/contract.ts'
-import { HighlightedText } from './HighlightedText.tsx'
+import { HighlightedText } from './HighlightedText.ts'
 import { type SearchScope, scopeToPrefix } from './search-scope.ts'
 import type { SearchHistoryEntry } from './search-history.ts'
 import css, { cssText } from './UniversalPalette.module.css'

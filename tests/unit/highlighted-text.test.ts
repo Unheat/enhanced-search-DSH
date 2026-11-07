@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
 import { renderToString } from 'react-dom/server'
-import { findTextMatchRanges, HighlightedText } from '../../src/client/HighlightedText.tsx'
+import { findTextMatchRanges, HighlightedText } from '../../src/client/HighlightedText.ts'
 
 test('findTextMatchRanges returns empty for empty text or query', () => {
   assert.deepEqual(findTextMatchRanges('', 'search'), [])
