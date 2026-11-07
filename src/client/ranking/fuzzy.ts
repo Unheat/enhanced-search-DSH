@@ -1,5 +1,6 @@
 /**
- * Deterministic, no-LLM fuzzy + subsequence + alias matcher.
+ * Deterministic, no-LLM fuzzy + subsequence + tokenized multi-field matcher.
+ * Inspired by ZCode Quickpick & VS Code Command Palette.
  */
 
 export interface MatchInput {
@@ -59,14 +60,16 @@ function subsequence(haystack: string, needle: string): Range[] | null {
   return ranges
 }
 
-function matchSingleWord(q: string, input: MatchInput): MatchResult {
+export function matchSingleWord(q: string, input: MatchInput): MatchResult {
   const title = input.title
   const lt = lower(title).replace(/^\//, '')
   const lq = lower(q).replace(/^\//, '')
   if (lq === '') return { score: title.startsWith('/') ? 0.92 : 0, ranges: [] }
 
+  // 1. Exact match on title
   if (lt === lq) return { score: 1, ranges: [{ start: 0, end: title.length }] }
 
+  // 2. Exact match on aliases
   if (input.aliases && input.aliases.length > 0) {
     for (const a of input.aliases) {
       if (lower(a) === lq) {
@@ -75,29 +78,74 @@ function matchSingleWord(q: string, input: MatchInput): MatchResult {
     }
   }
 
+  // 3. Prefix match on title
   if (lt.startsWith(lq)) {
-    return { score: 0.92, ranges: [{ start: 0, end: q.length }] }
+    const offset = title.startsWith('/') ? 1 : 0
+    return { score: 0.92, ranges: [{ start: offset, end: offset + lq.length }] }
   }
 
-  if (input.keywords) {
+  // 4. Word boundary match in title (e.g. "plugin" in "Fix this plugin")
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lq)}`, 'i')
+  const boundaryMatch = wordBoundaryRegex.exec(lt)
+  if (boundaryMatch) {
+    const offset = (title.startsWith('/') ? 1 : 0) + boundaryMatch.index
+    return { score: 0.88, ranges: [{ start: offset, end: offset + lq.length }] }
+  }
+
+  // 5. Keyword exact, prefix, or path segment match
+  if (input.keywords && input.keywords.length > 0) {
     for (const k of input.keywords) {
-      if (lower(k) === lq) {
-        return { score: 0.94, ranges: [] }
+      const lk = lower(k)
+      if (lk === lq) {
+        return { score: 0.92, ranges: findRanges(lower(title), lq) }
       }
-      if (lower(k).startsWith(lq)) {
-        return { score: 0.88, ranges: [] }
+      if (lk.startsWith(lq)) {
+        return { score: 0.86, ranges: findRanges(lower(title), lq) }
+      }
+      // If keyword is a path, match path segments (e.g. /study/workflow -> "workflow")
+      if (lk.includes('/') || lk.includes('\\')) {
+        const segments = lk.split(/[\\/]/).filter(Boolean)
+        if (segments.some(seg => seg === lq)) {
+          return { score: 0.85, ranges: findRanges(lower(title), lq) }
+        }
+        if (segments.some(seg => seg.startsWith(lq))) {
+          return { score: 0.80, ranges: findRanges(lower(title), lq) }
+        }
       }
     }
   }
 
-  // Contiguous title/name matches beat abbreviations. Descriptions never use
-  // subsequence matching: sparse letters in long prose are not relevance.
-  if (lt.includes(lq)) return { score: 0.84, ranges: findRanges(lower(title), lq) }
+  // 6. Title contains word
+  if (lt.includes(lq)) {
+    return { score: 0.84, ranges: findRanges(lower(title), lq) }
+  }
+
+  // 7. Alias prefix match
   for (const alias of input.aliases ?? []) {
     if (lower(alias).startsWith(lq)) return { score: 0.9, ranges: [] }
   }
-  if (input.snippet && lower(input.snippet).includes(lq)) return { score: 0.82, ranges: [] }
 
+  // 8. Snippet (full-text conversation hit)
+  if (input.snippet && lower(input.snippet).includes(lq)) {
+    return { score: 0.82, ranges: [] }
+  }
+
+  // 9. Subtitle path segment match (e.g. subtitle contains path /study/workflow)
+  if (input.subtitle) {
+    const lsub = lower(input.subtitle)
+    if (lsub.includes('/') || lsub.includes('\\')) {
+      const segments = lsub.split(/[\\/\s·]+/).filter(Boolean)
+      if (segments.some(seg => seg === lq)) {
+        return { score: 0.80, ranges: [] }
+      }
+    }
+    // Bare prose substring in subtitle has low score (0.5) to avoid false positives
+    if (lsub.includes(lq)) {
+      return { score: 0.5, ranges: [] }
+    }
+  }
+
+  // 10. Subsequence fuzzy match in title
   const sub = subsequence(title, q)
   if (sub) {
     const totalSpan = sub[sub.length - 1]!.end - sub[0]!.start
@@ -106,8 +154,6 @@ function matchSingleWord(q: string, input: MatchInput): MatchResult {
     const score = Math.min(0.78, 0.45 + 0.25 * density + 0.08 * early)
     if (q.length >= 3 && density >= 0.5) return { score, ranges: sub }
   }
-
-  if (input.subtitle && lower(input.subtitle).includes(lq)) return { score: 0.2, ranges: [] }
 
   return { score: 0, ranges: [] }
 }
@@ -118,14 +164,22 @@ export function matchItem(query: string, input: MatchInput): MatchResult {
 
   const words = q.split(/\s+/).filter(Boolean)
   if (words.length > 1) {
-    const results = words.map(w => matchSingleWord(w, input))
-    if (results.every(r => r.score >= 0.6)) {
+    const results = words.map((w) => matchSingleWord(w, input))
+    // Every query word must match with score >= 0.65
+    if (results.every((r) => r.score >= 0.65)) {
       const avgScore = results.reduce((acc, r) => acc + r.score, 0) / results.length
-      const allRanges = results.flatMap(r => r.ranges).sort((a, b) => a.start - b.start)
-      return { score: avgScore, ranges: allRanges }
+      const allRanges = results.flatMap((r) => r.ranges).sort((a, b) => a.start - b.start)
+      const titleLower = lower(input.title)
+      const allInTitle = words.every((w) => titleLower.includes(lower(w)))
+      const finalScore = Math.min(1.0, avgScore + (allInTitle ? 0.05 : 0))
+      return { score: finalScore, ranges: allRanges }
     }
     return { score: 0, ranges: [] }
   }
 
   return matchSingleWord(q, input)
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

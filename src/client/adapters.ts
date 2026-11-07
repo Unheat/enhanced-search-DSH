@@ -115,6 +115,11 @@ function commandItem(
   context: PaletteContext,
 ): PaletteItem {
   const line = `/${descriptor.name}`
+  const keywords = [
+    descriptor.name,
+    descriptor.description,
+    descriptor.input?.hint,
+  ].filter((k): k is string => typeof k === 'string' && k.length > 0)
   return {
     id: `commands:${descriptor.name}`,
     providerId: 'commands',
@@ -123,7 +128,7 @@ function commandItem(
     aliases: [descriptor.name],
     source: 'DSH',
     subtitle: descriptor.description,
-    keywords: descriptor.input === undefined ? undefined : [descriptor.input.hint],
+    keywords,
     primary: {
       id: 'execute',
       title: 'Execute',
@@ -195,16 +200,26 @@ function sessionItem(
   context: PaletteContext,
   uiWorkspace?: SessionNavigator,
 ): PaletteItem {
+  const cwdParts = summary.cwd ? summary.cwd.split(/[\\/]/).filter(Boolean) : []
+  const folderName = cwdParts.at(-1)
+  const keywords = [
+    summary.title,
+    summary.cwd,
+    folderName,
+    summary.id,
+  ].filter((k): k is string => typeof k === 'string' && k.length > 0)
+
   return {
     id: `sessions:${summary.id}`,
     providerId: 'sessions',
     kind: 'session',
-    title: summary.displayTitle,
+    title: summary.displayTitle || summary.title || 'Untitled Session',
     updatedAt: summary.updatedAt,
     isCurrent: current,
     subtitle: [current ? 'current' : undefined, summary.running ? 'running' : 'idle', summary.cwd]
       .filter((part): part is string => part !== undefined)
       .join(' · '),
+    keywords,
     badges: [relativeAge(summary.updatedAt)],
     primary: {
       id: 'open',
@@ -282,7 +297,13 @@ function modelItem(
     title: model.name,
     source: group.name,
     subtitle: model.description === undefined ? group.name : `${group.name} · ${model.description}`,
-    keywords: [group.id, model.id],
+    keywords: [
+      group.id,
+      group.name,
+      model.id,
+      model.name,
+      model.description,
+    ].filter((k): k is string => typeof k === 'string' && k.length > 0),
     badges: current ? ['current'] : reasoningEffort === undefined ? undefined : [reasoningEffort],
     primary: {
       id: 'select',
@@ -316,34 +337,38 @@ export function createConversationHitsProvider(
       const result = await sessions.search(query, signal)
       if (!result.ok) throw remoteError('sessions.search', result)
       if (signal.aborted) return EMPTY_ITEMS
-      return result.value.items.slice(0, input.limit).map(hit => ({
-        id: `conversation-hits:${hit.sessionId}`,
-        providerId: 'conversation-hits',
-        kind: 'conversation-hit',
-        title: sessions.list.getSnapshot().byId[hit.sessionId]?.displayTitle
-          ?? sessions.list.getSnapshot().byId[hit.sessionId]?.title
-          ?? String(hit.sessionId),
-        updatedAt: sessions.list.getSnapshot().byId[hit.sessionId]?.updatedAt,
-        workspaceTitle: sessions.list.getSnapshot().byId[hit.sessionId]?.cwd?.split(/[\\/]/).filter(Boolean).at(-1),
-        source: 'DSH',
-        subtitle: 'history hit',
-        snippet: hit.snippet,
-        keywords: [hit.snippet],
-        primary: {
-          id: 'open',
-          title: 'Open',
-          kind: 'primary',
-          run: () => {
-            if (uiWorkspace && typeof uiWorkspace.openSession === 'function') {
-              uiWorkspace.openSession(hit.sessionId)
-            } else if (typeof (sessions as any).open === 'function') {
-              (sessions as any).open(hit.sessionId)
-            }
+      return result.value.items.slice(0, input.limit).map(hit => {
+        const sess = sessions.list.getSnapshot().byId[hit.sessionId]
+        const sessTitle = sess?.displayTitle ?? sess?.title ?? String(hit.sessionId)
+        const cwdParts = sess?.cwd?.split(/[\\/]/).filter(Boolean) ?? []
+        const folderName = cwdParts.at(-1)
+        return {
+          id: `conversation-hits:${hit.sessionId}`,
+          providerId: 'conversation-hits',
+          kind: 'conversation-hit',
+          title: sessTitle,
+          updatedAt: sess?.updatedAt,
+          workspaceTitle: folderName,
+          source: 'DSH',
+          subtitle: 'history hit',
+          snippet: hit.snippet,
+          keywords: [hit.snippet],
+          primary: {
+            id: 'open',
+            title: 'Open',
+            kind: 'primary',
+            run: () => {
+              if (uiWorkspace && typeof uiWorkspace.openSession === 'function') {
+                uiWorkspace.openSession(hit.sessionId)
+              } else if (typeof (sessions as any).open === 'function') {
+                (sessions as any).open(hit.sessionId)
+              }
+            },
           },
-        },
-        secondary: [],
-        context: { ...input.context, sessionId: String(hit.sessionId) },
-      }))
+          secondary: [],
+          context: { ...input.context, sessionId: String(hit.sessionId) },
+        }
+      })
     },
   }
 }

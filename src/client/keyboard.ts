@@ -76,6 +76,7 @@ export function attachKeyboard(opts: KeyboardOptions): KeyboardHandle {
     if (detected === opts.shortcut || isCmdK) {
       e.preventDefault()
       e.stopPropagation()
+      e.stopImmediatePropagation()
       if (opts.isOpen?.()) opts.onClose()
       else opts.onOpen()
     }

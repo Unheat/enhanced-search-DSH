@@ -244,50 +244,91 @@ function applyInternal(ctx: Context): void {
   const keyboard = attach(activeShortcut)
   ctx.effect(() => () => keyboard.dispose(), 'universal-palette: keyboard listener')
 
-  // Intercept clicks on DSH native session search button to open Universal Palette instead
+  // Intercept clicks, pointerdown and focus on DSH native session search to open Universal Palette instead
   if (typeof document !== 'undefined') {
-    const isSearchTrigger = (el: Element): boolean => {
-      if (el.closest('[data-plugin="dsh-universal-palette"]')) return false
-      if (el.tagName === 'INPUT') return false
+    const isSearchTrigger = (el: Element): { isTrigger: boolean; initialText?: string } => {
+      if (el.closest('[data-plugin="dsh-universal-palette"]')) return { isTrigger: false }
 
+      // 1. Native DSH sidebar search input (the input shown when search is expanded)
+      if (el.tagName === 'INPUT') {
+        const input = el as HTMLInputElement
+        const placeholder = (input.placeholder || '').toLowerCase()
+        const cls = String(input.className || '')
+        if (
+          placeholder.includes('search session') ||
+          placeholder.includes('搜索会话') ||
+          cls.includes('searchInput')
+        ) {
+          return { isTrigger: true, initialText: input.value }
+        }
+        return { isTrigger: false }
+      }
+
+      // 2. Buttons, containers or icons representing search in sidebar or composer
       const target = el.closest('button, [role="button"], div[class*="search"]')
-      if (!target) return false
+      if (!target) return { isTrigger: false }
 
       const aria = (target.getAttribute('aria-label') || '').toLowerCase()
       const shortcuts = target.getAttribute('aria-keyshortcuts') || ''
       const cls = String(target.className || '')
 
-      if (cls.includes('searchButton') || shortcuts.includes('KeyK')) return true
-      if (cls.includes('search') && !cls.includes('searchInput') && !cls.includes('searchTree') && !cls.includes('searchResult') && !cls.includes('searchStatus')) {
-        return true
+      if (cls.includes('searchButton') || shortcuts.includes('KeyK')) return { isTrigger: true }
+      if (cls.includes('search') && !cls.includes('searchTree') && !cls.includes('searchResult') && !cls.includes('searchStatus')) {
+        return { isTrigger: true }
       }
       if (
         (aria.includes('search') || aria.includes('搜索') || aria.includes('検索') || aria.includes('buscar')) &&
         (aria.includes('session') || aria.includes('会话') || shortcuts.includes('K'))
       ) {
-        return true
+        return { isTrigger: true }
       }
-      return false
+      return { isTrigger: false }
     }
 
-    const onSearchIconClick = (e: MouseEvent) => {
+    const dismissNativeSidebarSearch = () => {
+      const inputs = document.querySelectorAll('input[class*="searchInput"]')
+      inputs.forEach(input => {
+        if (!input.closest('[data-plugin="dsh-universal-palette"]')) {
+          ;(input as HTMLInputElement).blur()
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        }
+      })
+      const clearBtn = document.querySelector('button[aria-label*="clear"], button[class*="clearButton"]') as HTMLElement | null
+      if (clearBtn && !clearBtn.closest('[data-plugin="dsh-universal-palette"]')) {
+        try { clearBtn.click() } catch { /* ignore */ }
+      }
+    }
+
+    const onSearchTrigger = (e: Event) => {
       const target = e.target as Element | null
       if (!target) return
-      if (isSearchTrigger(target)) {
+      const check = isSearchTrigger(target)
+      if (check.isTrigger) {
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()
+        if (target instanceof HTMLElement) {
+          target.blur()
+        }
+        dismissNativeSidebarSearch()
         if (controller.getState().presentation === 'floating') {
           controller.close()
         } else {
           controller.openFloating()
+          if (check.initialText) {
+            controller.setDraft(check.initialText)
+          }
         }
       }
     }
 
-    document.addEventListener('click', onSearchIconClick, true)
+    document.addEventListener('click', onSearchTrigger, true)
+    document.addEventListener('pointerdown', onSearchTrigger, true)
+    document.addEventListener('focusin', onSearchTrigger, true)
     ctx.effect(() => () => {
-      document.removeEventListener('click', onSearchIconClick, true)
+      document.removeEventListener('click', onSearchTrigger, true)
+      document.removeEventListener('pointerdown', onSearchTrigger, true)
+      document.removeEventListener('focusin', onSearchTrigger, true)
     }, 'universal-palette: search icon click interceptor')
   }
 
