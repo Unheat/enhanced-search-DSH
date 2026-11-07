@@ -19,6 +19,8 @@ export const en = {
   actionFailed: 'Action unavailable. Check the DSH Session or try again.', providerFailed: 'Some results are unavailable. Try again.',
   shortcutConflict: '"{shortcut}" is also used by {owners}.',
   heroSearchUnavailable: "Composer Search is unavailable on this host's Hero surface.",
+  scopeAll: 'All', scopeCommands: 'Commands', scopeSessions: 'Sessions', scopeWorkspaces: 'Workspaces',
+  recentSearches: 'Recent searches', clearHistory: 'Clear',
 }
 export type PaletteKey = keyof typeof en
 export type PaletteTranslate = (key: PaletteKey, params?: Record<string, unknown>) => string
@@ -40,6 +42,8 @@ export const zh: Record<PaletteKey, string> = {
   actionFailed: '操作暂不可用，请检查当前会话或重试。', providerFailed: '部分结果暂不可用，请重试。',
   shortcutConflict: '"{shortcut}" 同时被 {owners} 使用。',
   heroSearchUnavailable: '当前宿主的 Hero 页面不支持 Composer Search。',
+  scopeAll: '全部', scopeCommands: '命令', scopeSessions: '会话', scopeWorkspaces: '工作区',
+  recentSearches: '最近搜索', clearHistory: '清除',
 }
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {

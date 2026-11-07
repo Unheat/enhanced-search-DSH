@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react'
 import { IconSearchOutline16, IconNewChatOutline16, IconFolderOpenOutline16, IconClockOutline16, IconSparkle16 } from './icons.tsx'
 import type { PaletteItem, PaletteAction } from '../shared/contract.ts'
+import { HighlightedText } from './HighlightedText.tsx'
+import { type SearchScope, scopeToPrefix } from './search-scope.ts'
+import type { SearchHistoryEntry } from './search-history.ts'
 import css, { cssText } from './UniversalPalette.module.css'
 
 export interface UniversalPaletteProps {
@@ -31,6 +34,11 @@ export interface UniversalPaletteProps {
   /** Effective shortcut for the conflict notice (see shortcutConflicts.ts). */
   readonly shortcut?: string
   readonly rootDataAttributes?: Readonly<Record<string, string>>
+  readonly activeScope?: SearchScope
+  readonly onSelectScope?: (scope: SearchScope) => void
+  readonly historyEntries?: readonly SearchHistoryEntry[]
+  readonly onPickHistory?: (entry: SearchHistoryEntry) => void
+  readonly onClearHistory?: () => void
 }
 
 /** Stable, presentation-agnostic renderer shared by Floating and Morph. */
@@ -59,19 +67,23 @@ export function UniversalPalette(props: UniversalPaletteProps) {
       if (event.target instanceof Node && !surface.current?.contains(event.target)) close.current()
       // Do not cancel/bubble-stop: the same pointer gesture must reach DSH.
     }
-    document.addEventListener('pointerdown', outside, true)
-    return () => document.removeEventListener('pointerdown', outside, true)
+    window.addEventListener('pointerdown', outside, { capture: true })
+    return () => window.removeEventListener('pointerdown', outside, { capture: true } as EventListenerOptions)
   }, [])
-  useLayoutEffect(() => { selectedRow.current?.scrollIntoView({ block: 'nearest' }) }, [props.selectedIndex])
+  useEffect(() => {
+    selectedRow.current?.scrollIntoView({ block: 'nearest' })
+  }, [props.selectedIndex])
+
   const current = props.items[props.selectedIndex]?.item
-  const actions = current?.secondary ?? []
+  const actions = current ? [current.primary, ...(current.secondary ?? [])] : []
+
   const keydown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing || composing.current) return
+    if (composing.current || event.nativeEvent.isComposing || event.repeat) return
     switch (event.key) {
       case 'Escape':
-        event.preventDefault(); event.stopPropagation()
+        event.preventDefault()
         if (props.actionPanelOpen) props.onCloseActionPanel()
-        else props.onClose()
+        else close.current()
         break
       case 'ArrowDown':
       case 'ArrowUp': {
@@ -115,6 +127,62 @@ export function UniversalPalette(props: UniversalPaletteProps) {
           onCompositionEnd={event => { composing.current = false; props.onQueryChange(event.currentTarget.value) }}
           onChange={event => props.onQueryChange(event.currentTarget.value)} />
       </div>
+      {props.onSelectScope && (
+        <div className={css.scopeBar} role="tablist">
+          <button
+            type="button"
+            className={`${css.scopePill} ${(!props.activeScope || props.activeScope === 'all') ? css.scopePillActive : ''}`}
+            onClick={() => props.onSelectScope?.('all')}
+          >
+            {props.t('scopeAll')}
+          </button>
+          <button
+            type="button"
+            className={`${css.scopePill} ${props.activeScope === 'commands' ? css.scopePillActive : ''}`}
+            onClick={() => props.onSelectScope?.('commands')}
+          >
+            &gt; {props.t('scopeCommands')}
+          </button>
+          <button
+            type="button"
+            className={`${css.scopePill} ${props.activeScope === 'sessions' ? css.scopePillActive : ''}`}
+            onClick={() => props.onSelectScope?.('sessions')}
+          >
+            # {props.t('scopeSessions')}
+          </button>
+          <button
+            type="button"
+            className={`${css.scopePill} ${props.activeScope === 'workspaces' ? css.scopePillActive : ''}`}
+            onClick={() => props.onSelectScope?.('workspaces')}
+          >
+            @ {props.t('scopeWorkspaces')}
+          </button>
+        </div>
+      )}
+      {props.historyEntries && props.historyEntries.length > 0 && !props.query.trim() && (
+        <div className={css.historyBar}>
+          <span className={css.historyLabel}>{props.t('recentSearches')}</span>
+          <div className={css.historyChips}>
+            {props.historyEntries.map((h, i) => (
+              <button
+                key={`${h.query}-${i}`}
+                type="button"
+                className={css.historyChip}
+                onClick={() => props.onPickHistory?.(h)}
+              >
+                {h.scope !== 'all' ? `${scopeToPrefix(h.scope)} ` : ''}{h.query}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={css.clearHistoryBtn}
+              onClick={() => props.onClearHistory?.()}
+            >
+              {props.t('clearHistory')}
+            </button>
+          </div>
+        </div>
+      )}
       {(props.guidance || props.contextHint) && <div className={css.guidance}>
         {props.guidance && <div className={css.heading}>{props.guidance}</div>}
         {props.contextHint && <div className={css.hint}>{props.contextHint}</div>}
@@ -130,7 +198,7 @@ export function UniversalPalette(props: UniversalPaletteProps) {
         </div> : props.items.map(({ item }, index) => {
           const Icon = item.kind === 'model' ? IconSparkle16 : item.kind === 'workspace' || item.id === 'startup:workspace' ? IconFolderOpenOutline16
             : item.kind === 'conversation-hit' || item.id === 'startup:recent' ? IconClockOutline16 : IconNewChatOutline16
-          const section = item.kind === 'session' ? 'current' : item.kind === 'model' ? 'models' : 'commands'
+          const section = item.kind === 'session' ? 'current' : item.kind === 'model' ? 'models' : item.kind === 'workspace' ? 'workspace' : item.kind === 'conversation-hit' ? 'history' : 'commands'
           const metadata = item.kind === 'conversation-hit' ? [props.t('history'), item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '', item.workspaceTitle].filter(Boolean).join(' · ') : undefined
           return <div key={item.id}>
             {props.sections && (index === 0 || props.items[index - 1]?.item.kind !== item.kind) && <div className={css.section} role="presentation">{props.t(section)}</div>}
@@ -143,9 +211,21 @@ export function UniversalPalette(props: UniversalPaletteProps) {
               onClick={() => { props.onSelectedIndexChange(index); props.onRunSecondary(item, item.primary) }}>
               <span className={css.icon} aria-hidden="true">{item.kind === 'command' ? <span className={css.commandIcon}>/</span> : <Icon />}</span>
               <div className={css.rowBody}>
-                <div className={css.titleLine}><div className={css.title}>{item.title}</div>{metadata && <span className={css.historyMeta}>{metadata}</span>}</div>
-                {item.snippet ? <div className={css.snippet}>{item.snippet}</div>
-                  : item.subtitle && <div className={css.meta}>{item.subtitle}</div>}
+                <div className={css.titleLine}>
+                  <div className={css.title}>
+                    <HighlightedText text={item.title} query={props.query} highlightClassName={css.highlightMark} />
+                  </div>
+                  {metadata && <span className={css.historyMeta}>{metadata}</span>}
+                </div>
+                {item.snippet ? (
+                  <div className={css.snippet}>
+                    <HighlightedText text={item.snippet} query={props.query} highlightClassName={css.highlightMark} />
+                  </div>
+                ) : item.subtitle ? (
+                  <div className={css.meta}>
+                    <HighlightedText text={item.subtitle} query={props.query} highlightClassName={css.highlightMark} />
+                  </div>
+                ) : null}
               </div>
               {item.badges?.length ? <span className={css.badge}>{item.badges.join(' · ')}</span> : null}
               {actions.length > 0 && index === props.selectedIndex && <span className={css.badge}>Tab</span>}

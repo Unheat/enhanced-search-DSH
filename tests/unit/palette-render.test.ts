@@ -25,6 +25,8 @@ function loadComponent(file: string): Record<string, unknown> {
       return { __esModule: true, default: new Proxy({}, { get: (_t, key) => String(key) }), cssText: '' }
     }
     if (id === './icons.tsx') return loadComponent('../../src/client/icons.tsx')
+    if (id === './HighlightedText.tsx') return loadComponent('../../src/client/HighlightedText.tsx')
+    if (id === './search-scope.ts') return loadComponent('../../src/client/search-scope.ts')
     if (id.includes('primitives')) {
       return Object.fromEntries([
         'IconSearchOutlineRegular', 'IconNewChatOutlineRegular', 'IconFolderOpenOutlineRegular',

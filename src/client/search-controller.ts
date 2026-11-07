@@ -21,7 +21,7 @@ import type { PalettePreferences } from './state/preferences.ts'
 export type Presentation = null | 'floating' | 'morph'
 
 /** Local search mode (mirrors what the surface requests). */
-export type SurfaceMode = 'all' | 'workspaces' | 'sessions'
+export type SurfaceMode = 'all' | 'commands' | 'sessions' | 'workspaces'
 export type ComposerEntry = 'direct' | 'slash'
 
 /** Listener fired on every committed state change. */

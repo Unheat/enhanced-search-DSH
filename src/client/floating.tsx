@@ -11,6 +11,8 @@ import type { ConflictObservable } from './shortcutConflicts.ts'
 import { UniversalPalette } from './UniversalPalette.tsx'
 import { prepareView, localizedError } from './paletteSurface.tsx'
 import type { PaletteAction, PaletteItem } from '../shared/contract.ts'
+import { readSearchHistory, pushSearchHistory, clearSearchHistory, type SearchHistoryEntry } from './search-history.ts'
+import { scopeToPrefix, type SearchScope } from './search-scope.ts'
 
 export interface FloatingProps {
   readonly ctx: Context
@@ -27,8 +29,8 @@ export interface FloatingProps {
 export function Floating(props: FloatingProps) {
   const locale = useSyncExternalStore(fn => props.ctx.locale.subscribe(fn), () => props.ctx.locale.getSnapshot())
   const t = useMemo(() => bindLocale(props.ctx.locale, NS), [props.ctx.locale])
-const sidebarWide = useSyncExternalStore(props.sidebar.subscribe, props.sidebar.getSnapshot)
-const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
+  const sidebarWide = useSyncExternalStore(props.sidebar.subscribe, props.sidebar.getSnapshot)
+  const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
   const controller = props.controller
   const state = useSyncExternalStore(
     fn => controller.subscribe(fn),
@@ -40,10 +42,18 @@ const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
     props.shortcutConflicts?.getSnapshot ?? (() => null),
   )
   const returnFocus = useRef<HTMLElement | null>(null)
+  const [history, setHistory] = useState<SearchHistoryEntry[]>(() => readSearchHistory())
   const [view, setView] = useState(() => buildView(state, props, t, controller))
+
   useEffect(() => {
     setView(buildView(state, props, t, controller))
   }, [state, props, t, locale, controller])
+
+  useEffect(() => {
+    if (state.presentation === 'floating') {
+      setHistory(readSearchHistory())
+    }
+  }, [state.presentation])
 
   // Sessions/workspaces refresh wiring. The keyboard listener is
   // registered once at apply time so it works before this body mounts.
@@ -77,9 +87,19 @@ const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
   const displayError = state.error
     ? localizedError(state.error, t)
     : (state.aggregator.failures.length ? t('providerFailed') : '')
+
+  const recordCurrentSearch = () => {
+    const q = (view.effectiveQuery || state.draft).trim()
+    if (q) {
+      const updated = pushSearchHistory(q, view.activeScope)
+      setHistory(updated)
+    }
+  }
+
   const runPrimary = async () => {
     const item = view.items[Math.min(state.selectedIndex, Math.max(0, view.items.length - 1))]?.item
     if (!item) return
+    recordCurrentSearch()
     controller.reportError(null)
     try {
       await props.preferences.recordUse(item.id)
@@ -87,7 +107,9 @@ const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
       if (item.primary.stayOpen !== true) controller.close()
     } catch (e) { controller.reportError(e instanceof Error ? e.message : String(e)) }
   }
+
   const runSecondary = async (item: PaletteItem, action: PaletteAction) => {
+    recordCurrentSearch()
     controller.reportError(null)
     try {
       await props.preferences.recordUse(item.id)
@@ -96,6 +118,29 @@ const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
       else controller.setActionPanelOpen(false)
     } catch (e) { controller.reportError(e instanceof Error ? e.message : String(e)) }
   }
+
+  const handleSelectScope = (scope: SearchScope) => {
+    const prefix = scopeToPrefix(scope)
+    if (scope === 'all') {
+      controller.setMode('all')
+      controller.setDraft(view.effectiveQuery)
+    } else {
+      controller.setMode(scope)
+      controller.setDraft(prefix ? `${prefix} ${view.effectiveQuery}`.trimEnd() : view.effectiveQuery)
+    }
+  }
+
+  const handlePickHistory = (entry: SearchHistoryEntry) => {
+    const prefix = scopeToPrefix(entry.scope)
+    const fullText = prefix ? `${prefix} ${entry.query}` : entry.query
+    controller.setDraft(fullText)
+  }
+
+  const handleClearHistory = () => {
+    clearSearchHistory()
+    setHistory([])
+  }
+
   return <div data-presentation="floating">
     <UniversalPalette
       t={t}
@@ -123,6 +168,11 @@ const cold = useSyncExternalStore(props.cold.subscribe, props.cold.getSnapshot)
       onCloseActionPanel={() => controller.setActionPanelOpen(false)}
       onActionPanelIndexChange={(i) => controller.setActionPanelIndex(i)}
       onClose={() => controller.close()}
+      activeScope={view.activeScope}
+      onSelectScope={handleSelectScope}
+      historyEntries={history}
+      onPickHistory={handlePickHistory}
+      onClearHistory={handleClearHistory}
       rootDataAttributes={{ 'data-presentation': 'floating' }}
     />
   </div>

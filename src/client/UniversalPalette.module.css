@@ -78,6 +78,18 @@
 .actionPanel { border-top: .5px solid var(--dsw-alias-border-l2); padding: 4px; }
 .action { display: block; width: 100%; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: inherit; font: inherit; cursor: pointer; }
 .action:hover, .action.selected { background: var(--dsw-alias-interactive-bg-hover); }
+.scopeBar { display: flex; align-items: center; gap: 6px; padding: 6px 18px 8px; border-bottom: .5px solid var(--dsw-alias-border-l2); overflow-x: auto; flex: none; }
+.scopePill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 12px; border: .5px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; cursor: pointer; transition: all var(--ds-transition-duration-fast) var(--ds-ease-in-out); white-space: nowrap; }
+.scopePill:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.scopePillActive { background: color-mix(in srgb, var(--dsw-alias-interactive-primary, #3b82f6) 18%, transparent); border-color: var(--dsw-alias-interactive-primary, #3b82f6); color: var(--dsw-alias-label-primary); font-weight: 500; }
+.historyBar { display: flex; align-items: center; gap: 8px; padding: 6px 18px; border-bottom: .5px solid var(--dsw-alias-border-l2); flex-wrap: wrap; }
+.historyLabel { font-size: 11px; color: var(--dsw-alias-label-tertiary); flex: none; }
+.historyChips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+.historyChip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; border: .5px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; cursor: pointer; transition: background-color var(--ds-transition-duration-fast); }
+.historyChip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.clearHistoryBtn { margin-left: auto; border: 0; background: transparent; color: var(--dsw-alias-label-tertiary); font: inherit; font-size: 10px; cursor: pointer; padding: 2px 4px; }
+.clearHistoryBtn:hover { color: var(--dsw-alias-label-secondary); text-decoration: underline; }
+.highlightMark { background: color-mix(in srgb, var(--dsw-alias-interactive-primary, #3b82f6) 24%, transparent); color: inherit; font-weight: 600; border-radius: 2px; padding: 0 1px; }
 .footer { padding: 10px 18px; flex: none; font-size: 11px; color: var(--dsw-alias-label-tertiary); border-top: .5px solid var(--dsw-alias-border-l2); white-space: nowrap; }
 @supports not (backdrop-filter: blur(1px)) { .surface { background: var(--dsw-specific-menu); } }
 @media (prefers-contrast: more) { .surface { background: var(--dsw-specific-menu); } }

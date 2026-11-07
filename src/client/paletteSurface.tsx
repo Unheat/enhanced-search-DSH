@@ -12,22 +12,17 @@
 import type { ReactNode } from 'react'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { PaletteItem } from '../shared/contract.ts'
-import type { SearchState } from './search-controller.ts'
+import type { SearchState, SurfaceMode } from './search-controller.ts'
 import type { RankedItem } from './ranking/rank.ts'
 import { createStartupItems, contextualItems } from './startup.ts'
+import { resolveQueryScope, type SearchScope } from './search-scope.ts'
 
 export interface SurfaceDriver {
   readonly ctx: Pick<import('@deepseek-ai/cordis').Context, 'sessions' | 'workspaces' | 'uiWorkspace'>
   readonly hasSession: boolean
   readonly workspaces: ReadonlyArray<{ workspaceId: string; title: string; path: string }>
   readonly t: (key: string, params?: Record<string, unknown>) => string
-  /**
-   * Navigate the surface into one of the reserved modes. Required so every
-   * startup row that promises navigation is really executable — the
-   * historical `() => undefined` wiring left "Select workspace" (with
-   * existing workspaces) and "Recent sessions" as dead rows.
-   */
-  readonly setMode: (mode: 'workspaces' | 'sessions') => void
+  readonly setMode: (mode: SurfaceMode) => void
 }
 
 export interface PreparedView {
@@ -38,6 +33,8 @@ export interface PreparedView {
   readonly emptyMessage: string
   readonly isEmpty: boolean
   readonly pendingQuery: boolean
+  readonly activeScope: SearchScope
+  readonly effectiveQuery: string
 }
 
 /**
@@ -45,63 +42,74 @@ export interface PreparedView {
  * `PreparedView`. No I/O, no React, no surface-specific state.
  */
 export function prepareView(state: SearchState, driver: SurfaceDriver): PreparedView {
-  const mode = state.mode
   const draft = state.draft
-  // Pending while the aggregator pipeline has not caught up with the draft.
-  // Compare against the aggregator's live query: the controller-level
-  // `query` field is write-never (draft is the single input source), so
-  // comparing against it would suppress every non-empty result list.
-  const pendingQuery = mode !== 'workspaces' && state.aggregator.query !== draft.trim().replace(/^>\s*/, '')
+  const resolved = resolveQueryScope(draft)
+  const effectiveScope: SearchScope = resolved.explicit ? resolved.scope : (state.mode as SearchScope)
+  const cleanQuery = resolved.query
+
+  const pendingQuery = effectiveScope !== 'workspaces' && state.aggregator.query !== cleanQuery
   const queryItems = state.aggregator.items
-  const contextual = draft.trim() === '' && driver.hasSession && mode === 'all'
-    ? contextualItems(queryItems as readonly RankedItem[])
-    : queryItems
+
   let visible: readonly { item: PaletteItem; score: number; matchRanges: readonly { start: number; end: number }[] }[]
-  if (mode === 'sessions') {
+
+  if (effectiveScope === 'sessions') {
     visible = queryItems
-      .filter((row) => row.item.kind === 'session')
+      .filter((row) => row.item.kind === 'session' || row.item.kind === 'conversation-hit')
       .map((row) => ({ item: row.item, score: row.score, matchRanges: row.match.ranges }))
-  } else if (mode === 'workspaces') {
+  } else if (effectiveScope === 'commands') {
+    visible = queryItems
+      .filter((row) => row.item.kind === 'command' || row.item.kind === 'action')
+      .map((row) => ({ item: row.item, score: row.score, matchRanges: row.match.ranges }))
+  } else if (effectiveScope === 'workspaces') {
+    const q = cleanQuery.toLowerCase()
     visible = driver.workspaces
-      .filter((w) => `${w.title} ${w.path}`.toLowerCase().includes(draft.toLowerCase()))
+      .filter((w) => !q || `${w.title} ${w.path}`.toLowerCase().includes(q))
       .map((w) => ({ item: workspaceItem(w, driver), score: 0, matchRanges: [] }))
   } else {
-    const base = contextual.map((row) => ({ item: row.item, score: row.score, matchRanges: row.match.ranges }))
-    if (!driver.hasSession && draft.trim() === '') {
+    // effectiveScope === 'all'
+    if (!driver.hasSession && cleanQuery === '') {
       const startup = createStartupItems(
         driver.ctx,
         () => driver.setMode('workspaces'),
         () => driver.setMode('sessions'),
         driver.t,
       )
-      visible = [...startup.map(asRanked), ...base]
+      const base = contextualItems(queryItems as readonly RankedItem[])
+      visible = [...startup.map(asRanked), ...base.map(r => ({ item: r.item, score: r.score, matchRanges: r.match.ranges }))]
+    } else if (cleanQuery === '') {
+      const contextual = driver.hasSession ? contextualItems(queryItems as readonly RankedItem[]) : queryItems
+      visible = contextual.map((row) => ({ item: row.item, score: row.score, matchRanges: row.match.ranges }))
     } else {
-      visible = base
+      visible = queryItems.map((r) => ({ item: r.item, score: r.score, matchRanges: r.match.ranges }))
     }
   }
 
-  const guidance = mode === 'workspaces'
+  const guidance = effectiveScope === 'workspaces'
     ? driver.t('workspace')
-    : mode === 'sessions'
+    : effectiveScope === 'sessions'
     ? driver.t('recent')
-    : !driver.hasSession
+    : effectiveScope === 'commands'
+    ? driver.t('commands')
+    : !driver.hasSession && cleanQuery === ''
     ? driver.workspaces.length === 0 ? driver.t('choose') : driver.t('create')
     : undefined
 
-  const contextHint = !driver.hasSession
+  const contextHint = !driver.hasSession && cleanQuery === ''
     ? driver.t('requires')
-    : mode === 'sessions' && visible.length === 0 ? driver.t('noRecent') : undefined
+    : effectiveScope === 'sessions' && visible.length === 0 ? driver.t('noRecent') : undefined
 
-  const emptyMessage = mode === 'sessions' ? driver.t('noRecent') : driver.t('empty')
+  const emptyMessage = effectiveScope === 'sessions' ? driver.t('noRecent') : driver.t('empty')
 
   return {
     items: pendingQuery ? [] : visible,
     guidance,
     contextHint,
-    sections: driver.hasSession && mode === 'all' && draft.trim() === '',
+    sections: (driver.hasSession && effectiveScope === 'all' && cleanQuery === '') || (effectiveScope === 'all' && cleanQuery !== ''),
     emptyMessage,
     isEmpty: visible.length === 0,
     pendingQuery,
+    activeScope: effectiveScope,
+    effectiveQuery: cleanQuery,
   }
 }
 
@@ -123,8 +131,6 @@ function workspaceItem(
       id: 'open-workspace',
       title: 'Open',
       run: async () => {
-        // Official workspace flow: resolve the reusable/new Session for the
-        // workspace, then open it.
         const ui = (driver.ctx as any).uiWorkspace
         if (ui && typeof ui.connectWorkspace === 'function') {
           const sessionId = await ui.connectWorkspace(w.workspaceId as WorkspaceId)

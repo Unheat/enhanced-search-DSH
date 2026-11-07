@@ -59,14 +59,11 @@ function subsequence(haystack: string, needle: string): Range[] | null {
   return ranges
 }
 
-export function matchItem(query: string, input: MatchInput): MatchResult {
-  const q = query.trim()
-  if (q.length === 0) return { score: 0, ranges: [] }
-
+function matchSingleWord(q: string, input: MatchInput): MatchResult {
   const title = input.title
   const lt = lower(title).replace(/^\//, '')
   const lq = lower(q).replace(/^\//, '')
-  if (lq === '') return {score:title.startsWith('/') ? 0.92 : 0, ranges:[]}
+  if (lq === '') return { score: title.startsWith('/') ? 0.92 : 0, ranges: [] }
 
   if (lt === lq) return { score: 1, ranges: [{ start: 0, end: title.length }] }
 
@@ -113,4 +110,22 @@ export function matchItem(query: string, input: MatchInput): MatchResult {
   if (input.subtitle && lower(input.subtitle).includes(lq)) return { score: 0.2, ranges: [] }
 
   return { score: 0, ranges: [] }
+}
+
+export function matchItem(query: string, input: MatchInput): MatchResult {
+  const q = query.trim()
+  if (q.length === 0) return { score: 0, ranges: [] }
+
+  const words = q.split(/\s+/).filter(Boolean)
+  if (words.length > 1) {
+    const results = words.map(w => matchSingleWord(w, input))
+    if (results.every(r => r.score >= 0.6)) {
+      const avgScore = results.reduce((acc, r) => acc + r.score, 0) / results.length
+      const allRanges = results.flatMap(r => r.ranges).sort((a, b) => a.start - b.start)
+      return { score: avgScore, ranges: allRanges }
+    }
+    return { score: 0, ranges: [] }
+  }
+
+  return matchSingleWord(q, input)
 }

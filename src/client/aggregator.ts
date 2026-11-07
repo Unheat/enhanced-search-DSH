@@ -9,6 +9,7 @@
 import type { PaletteCollectInput, PaletteContext, PaletteItem, PaletteProvider } from '../shared/contract.ts'
 import type { PalettePreferences } from './state/preferences.ts'
 import { rankItems, type RankedItem } from './ranking/rank.ts'
+import { resolveQueryScope } from './search-scope.ts'
 
 export interface AggregatorOptions {
   readonly providers: readonly PaletteProvider[]
@@ -118,9 +119,9 @@ export class PaletteAggregator {
     const controller = new AbortController()
     this.currentController = controller
     const seq = this.state.seq + 1
-    const trimmed = query.trim()
-    const actionsHint = trimmed.startsWith('>')
-    const effectiveQuery = actionsHint ? trimmed.slice(1).trimStart() : trimmed
+    const resolved = resolveQueryScope(query)
+    const actionsHint = resolved.scope === 'commands'
+    const effectiveQuery = resolved.query
 
     const context = this.contextGetter()
 

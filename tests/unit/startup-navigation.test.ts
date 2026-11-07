@@ -11,6 +11,7 @@ import { createRequire } from 'node:module'
 import ts from 'typescript'
 import * as startup from '../../src/client/startup.ts'
 import * as locales from '../../src/client/locales.ts'
+import * as searchScope from '../../src/client/search-scope.ts'
 
 const nodeRequire = createRequire(import.meta.url)
 
@@ -25,6 +26,7 @@ const surface = (() => {
   const shim = (id: string): unknown => {
     if (id.endsWith('startup.ts')) return startup
     if (id.endsWith('locales.ts')) return locales
+    if (id.endsWith('search-scope.ts')) return searchScope
     if (id === 'react') return nodeRequire('react')
     return {}
   }
