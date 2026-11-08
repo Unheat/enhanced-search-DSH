@@ -1,5 +1,4 @@
 node_modules/
-lib/
 *.log
 .DS_Store
 Thumbs.db
@@ -11,5 +10,3 @@ Thumbs.db
 
 # Playwright traces can contain local DSH authentication URLs.
 evidence/**/local-only-trace.zip
-
-lib/

@@ -1,42 +1,65 @@
-# dsh-universal-palette
+# Enhanced Search for DeepSeek Harness (DSH Universal Palette)
 
-[![npm version](https://img.shields.io/npm/v/@yunmin311/dsh-universal-palette.svg)](https://www.npmjs.com/package/@yunmin311/dsh-universal-palette)
-[![GitHub release](https://img.shields.io/github/v/release/yunmin311/dsh-universal-palette.svg)](https://github.com/yunmin311/dsh-universal-palette/releases)
+[![GitHub release](https://img.shields.io/github/v/release/Unheat/enhanced-search-DSH.svg)](https://github.com/Unheat/enhanced-search-DSH/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![DSH](https://img.shields.io/badge/DSH-0.1.2--rc.1%2C%200.1.5--rc.1-2962ff.svg)](docs/COMPATIBILITY.md)
-[![node](https://img.shields.io/node/v/%40yunmin311/dsh-universal-palette.svg)](package.json)
-[![CI](https://github.com/yunmin311/dsh-universal-palette/actions/workflows/ci.yml/badge.svg)](https://github.com/yunmin311/dsh-universal-palette/actions/workflows/ci.yml)
+[![CI](https://github.com/Unheat/enhanced-search-DSH/actions/workflows/ci.yml/badge.svg)](https://github.com/Unheat/enhanced-search-DSH/actions/workflows/ci.yml)
 
-Language: English | [简体中文](README.zh-CN.md)
+An enhanced, high-performance command palette and unified search center for DeepSeek Harness Web — upgraded with **ZCode Command Center** paradigms, interactive scope tabs, search history, multi-word token matching, and complete fix for DSH UI workspace navigation.
 
-A command, session, model, and history surface for DeepSeek Harness Web — one keystroke, everything running in the current workspace.
+> Forked and upgraded from `@yunmin311/dsh-universal-palette` with SWE clean code standards and full test coverage.
 
-![The full Global Floating Palette in an active DSH conversation](https://raw.githubusercontent.com/yunmin311/dsh-universal-palette/main/docs/assets/readme/active-global-floating.png)
+---
 
-## Why Universal Palette
+## 🚀 Easy Installation in DSH
 
-DSH grows capabilities through plugins: each release and each community plugin can add Host commands, client command UIs, models, and reference sources. The native surfaces for these live in different places — the slash menu, the model selector, the sidebar, the composer's `@` menu — and none of them answer the one question a keyboard-first user actually has: *what can I do right now, in this workspace, and how do I get there?*
+Pre-built bundles (`lib/client.js` and `lib/index.js`) are committed directly to the repository. No local compilation is required.
 
-Universal Palette gives that shared search controller two presentations: contextual Composer Search and a global Floating Palette. It owns no second catalog: every command, session, model, and history hit it shows comes from DSH's public Client APIs at query time, so the Palette is automatically correct as DSH and its ecosystem change.
+### Method 1: Install via GitHub URL (Recommended)
 
-It is built to stay out of the way: DSH's own design tokens, glass over the native surface, locale-following copy, and zero behavior change for anything it does not have a verified public contract with.
+Run in your DSH profile directory (e.g. `~/.dsh/profiles/desktop/`):
 
-## Features
-
-- **Commands** — the complete live Host command catalog, searched and executed through official APIs; new Host commands from DSH or any plugin appear automatically with zero adaptation.
-- **Models** — the session's real model directory with the current selection, submitted through the public selection contract.
-- **Sessions** — current-first session navigation with stable identity dedupe, no title-based merging.
-- **Conversation Hits** — full-text history search via DSH's own session search, with snippet and metadata.
-- **Deterministic relevance** — exact-prefix-first scoring with a minimum relevance gate; recency and context only order genuinely relevant rows.
-- **Native look and locale** — DSH design tokens, official menu typography and elevation, glass surface, zh/en copy following DSH's locale.
-- **Public-contract interoperability** — capability-detected cooperation with community plugins; no private registry reads, no hard dependencies.
-
-## Quick Start
-
-```powershell
-dsh plugin --profile web add @yunmin311/dsh-universal-palette@0.2.1
-dsh --profile web
+```bash
+cd ~/.dsh/profiles/desktop
+pnpm add github:Unheat/enhanced-search-DSH
 ```
+
+Then add or verify the dependency in `package.json`, or install directly via DSH CLI:
+
+```bash
+dsh plugin --profile desktop add github:Unheat/enhanced-search-DSH
+```
+
+### Method 2: Local Clone Link
+
+```bash
+git clone https://github.com/Unheat/enhanced-search-DSH.git
+cd ~/.dsh/profiles/desktop
+pnpm add link:/path/to/enhanced-search-DSH
+```
+
+Reload DSH (`Cmd + R` / `Ctrl + R`) and press `Cmd + K` (or `Cmd + Shift + K` / `Alt + Q`) or click the search icon in the sidebar or composer!
+
+---
+
+## ✨ What's Upgraded in Enhanced Search (ZCode-Inspired)
+
+1. **Interactive Scope Pills Bar**:
+   - `[All]`: Search everything simultaneously.
+   - `[> Commands]`: Filter only commands and actions (prefix `>`).
+   - `[# Sessions]`: Filter conversations and chat history (prefix `#`).
+   - `[@ Workspaces]`: Filter workspaces and paths (prefix `@`).
+2. **Search History Chips**:
+   - Persisted deduplicated recent search history in `localStorage`.
+   - Click any chip to re-run the search instantly, with a 1-click Clear History option.
+3. **Multi-Word Tokenized Matching**:
+   - Searches across title, keywords, session folder path, CWD, and snippet tokens simultaneously.
+4. **Keyword Match Highlighting**:
+   - Visually highlights matching words in results using `<mark>` accent tokens.
+5. **Universal Composer Search Button**:
+   - The search button in the composer toolbar (`conversation.input.left`) now seamlessly toggles the Universal Palette popup, pre-filling whatever draft text you started typing.
+6. **Bug Fixes**:
+   - Fixed `driver.ctx.sessions.open is not a function` by properly routing to `ctx.uiWorkspace.openSession`.
+   - Fixed search icon click events in DSH sidebar to prevent falling back to native basic search.
 
 **Composer search**
 
