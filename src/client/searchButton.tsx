@@ -40,10 +40,6 @@ export function SearchButton(props: SearchButtonProps) {
     props.allowed?.getSnapshot ?? snapshotTrue,
     props.allowed?.getSnapshot ?? snapshotTrue,
   )
-  const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    // Keep the resident Composer focused: it remains the sole Morph input.
-    event.preventDefault()
-  }
   // Fail-closed diagnostics: a disabled button must explain WHY (stock Hero
   // without the composer dock), using the existing owned locale copy.
   const label = allowed ? t('palette') : t('heroSearchUnavailable')
@@ -55,12 +51,20 @@ export function SearchButton(props: SearchButtonProps) {
       aria-label={label}
       title={label}
       disabled={!allowed}
-      onPointerDown={onPointerDown}
       onClick={() => {
         if (!allowed) return
-        const id = props.ctx.sessions.list.getSnapshot().current
-        if (id === undefined) return
-        props.controller.openComposerSearch(String(id))
+        if (props.controller.getState().presentation === 'floating') {
+          props.controller.close()
+        } else {
+          props.controller.openFloating()
+          if (typeof document !== 'undefined') {
+            const textarea = document.querySelector('textarea')
+            const draft = textarea?.value?.trim()
+            if (draft && !draft.startsWith('/')) {
+              props.controller.setDraft(draft)
+            }
+          }
+        }
       }}
       style={{
         background: 'transparent',
@@ -71,6 +75,7 @@ export function SearchButton(props: SearchButtonProps) {
         gap: '4px',
         cursor: allowed ? 'pointer' : 'default',
         color: 'inherit',
+        opacity: allowed ? 1 : 0.4,
       }}
     >
       <IconSearchOutline16 />

@@ -105,7 +105,7 @@ function detectBrowserPlatform(): NodeJS.Platform {
 interface SearchButtonSlotProps {
   readonly ctx: Context
   readonly controller: SearchController
-  readonly allowed: { readonly getSnapshot: () => boolean; readonly subscribe: (fn: () => void) => () => void }
+  readonly allowed?: { readonly getSnapshot: () => boolean; readonly subscribe: (fn: () => void) => () => void }
 }
 
 function SearchButtonSlot(props: SearchButtonSlotProps) {
@@ -383,7 +383,7 @@ function applyInternal(ctx: Context): void {
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
     id: SEARCH_BUTTON_ID,
-  }, () => createElement(SearchButtonSlot, { ctx, controller, allowed: composerSearchAvailability })
+  }, () => createElement(SearchButtonSlot, { ctx, controller })
   ))
 
   // Public slash-pipeline source for `/find`. Registered once in apply
